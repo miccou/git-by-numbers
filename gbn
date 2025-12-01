@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+# gbn - operate on files by numeric index from a git status listing
+# Place this file in your PATH (e.g. ~/bin/gbn), chmod +x it.
+#
+# Usage:
+#   gbn status
+#   gbn diff [--staged|-s] INDEX[,RANGE...]
+#   gbn add INDEX[,RANGE...]
+#   gbn restore [--staged|-s] [--yes] [--dry-run|-n] INDEX[,RANGE...]
+#   gbn checkout INDEX[,RANGE...]
+#   gbn rm [--cached] [--yes] INDEX[,RANGE...]
+#
+set -euo pipefail
+
+prog="$(basename "$0")"
+
+print_usage() {
+  cat <<EOF
+$prog - operate on files listed by numeric index from 'git status'
+
+Commands:
+  status                         Print numbered status (indices start at 0)
+  diff [--staged|-s] INDEX...    Show git diff for selected indices
+  add INDEX...                   git add selected files
+  restore [--staged|-s] [--yes] [--dry-run|-n] INDEX...
+                                 git restore files (or staged)
+  checkout INDEX...              git checkout -- selected files (from HEAD)
+  rm [--cached] [--yes] INDEX... git rm selected files (use --cached to remove from index only)
+  help
+
+INDEX can be comma-separated or ranges, e.g. 0,2-4,7
+
+Examples:
+  $prog status
+  $prog diff 0,3-5
+  $prog add 4
+  $prog restore -s 2  # restore staged state for index 2
+EOF
+}
+
+if [[ $# -lt 1 ]]; then
+  print_usage
+  exit 2
+fi
+
+cmd="$1"; shift
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Not a git repository." >&2
+  exit 1
+fi
+
+# Build arrays of entries (porcelain -z)
+declare -a files
+declare -a statuses
+while IFS= read -r -d '' entry; do
+  status="${entry:0:2}"
+  path="${entry:3}"
+  files+=("$path")
+  statuses+=("$status")
+done < <(git status --porcelain -z --untracked-files=all)
+
+# Helper to print numbered status
+print_status() {
+  if [[ ${#files[@]} -eq 0 ]]; then
+    echo "(no changes)"
+    return
+  fi
+  printf "%-5s %-4s %s\n" "Index" "XY" "File"
+  printf "%-5s %-4s %s\n" "-----" "--" "----"
+  for i in "${!files[@]}"; do
+    printf "%-5d %-4s %s\n" "$i" "${statuses[i]}" "${files[i]}"
+  done
+}
+
+# Expand a token like "2" or "3-6" into indices (one per line)
+expand_token() {
+  token="$1"
+  if [[ "$token" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+    start="${BASH_REMATCH[1]}"
+    end="${BASH_REMATCH[2]}"
+    if (( start > end )); then
+      echo "Range start greater than end: $token" >&2
+      exit 3
+    fi
+    for ((i = start; i <= end; i++)); do
+      echo "$i"
+    done
+  elif [[ "$token" =~ ^[0-9]+$ ]]; then
+    echo "$token"
+  else
+    echo "Invalid index token: $token" >&2
+    exit 3
+  fi
+}
+
+case "$cmd" in
+  status) print_status; exit 0;;
+  help) print_usage; exit 0;;
+esac
+
+# Parse flags that may be passed before indices
+staged=0
+dry_run=0
+yes_all=0
+cached_rm=0
+index_args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--staged) staged=1; shift;;
+    -n|--dry-run) dry_run=1; shift;;
+    --yes) yes_all=1; shift;;
+    --cached) cached_rm=1; shift;;
+    --) shift; while [[ $# -gt 0 ]]; do index_args+=("$1"); shift; done; break;;
+    -*) echo "Unknown option: $1" >&2; exit 2;;
+    *) index_args+=("$1"); shift;;
+  esac
+done
+
+if [[ ${#index_args[@]} -eq 0 ]]; then
+  echo "No index given. Use '$prog status' to see indices." >&2
+  exit 2
+fi
+
+declare -A chosen
+for arg in "${index_args[@]}"; do
+  IFS=',' read -ra toks <<< "$arg"
+  for t in "${toks[@]}"; do
+    for i in $(expand_token "$t"); do
+      chosen["$i"]=1
+    done
+  done
+done
+
+declare -a targets
+for idx in "${!chosen[@]}"; do
+  if ! [[ "$idx" =~ ^[0-9]+$ ]]; then
+    echo "Bad index: $idx" >&2
+    exit 4
+  fi
+  if (( idx < 0 || idx >= ${#files[@]} )); then
+    echo "Index out of range: $idx" >&2
+    exit 4
+  fi
+  targets+=("${files[idx]}")
+done
+
+if [[ ${#targets[@]} -eq 0 ]]; then
+  echo "No files selected." >&2
+  exit 0
+fi
+
+# Show selection
+echo "Selected files:"
+for f in "${targets[@]}"; do
+  echo "  $f"
+done
+
+# Execute action
+case "$cmd" in
+  diff)
+    git_cmd=(git diff)
+    if (( staged == 1 )); then
+      git_cmd=(git diff --staged)
+    fi
+    git_cmd+=(--)
+    git_cmd+=("${targets[@]}")
+    if (( dry_run == 1 )); then
+      echo "Dry run: ${git_cmd[*]}"
+      exit 0
+    fi
+    "${git_cmd[@]}"
+    ;;
+
+  add)
+    git_cmd=(git add --)
+    git_cmd+=("${targets[@]}")
+    if (( dry_run == 1 )); then
+      echo "Dry run: ${git_cmd[*]}"
+      exit 0
+    fi
+    "${git_cmd[@]}"
+    ;;
+
+  restore)
+    git_cmd=(git restore)
+    if (( staged == 1 )); then
+      git_cmd+=(--staged)
+    fi
+    git_cmd+=(--)
+    git_cmd+=("${targets[@]}")
+    if (( dry_run == 1 )); then
+      echo "Dry run: ${git_cmd[*]}"
+      exit 0
+    fi
+    if (( yes_all == 0 )); then
+      read -r -p "Proceed with restore? [y/N] " ans
+      case "$ans" in y|Y) ;; *) echo "Aborted."; exit 0;; esac
+    fi
+    "${git_cmd[@]}"
+    ;;
+
+  checkout)
+    git_cmd=(git checkout --)
+    git_cmd+=("${targets[@]}")
+    if (( dry_run == 1 )); then
+      echo "Dry run: ${git_cmd[*]}"
+      exit 0
+    fi
+    "${git_cmd[@]}"
+    ;;
+
+  rm)
+    git_cmd=(git rm)
+    if (( cached_rm == 1 )); then
+      git_cmd+=(--cached)
+    fi
+    git_cmd+=(--)
+    git_cmd+=("${targets[@]}")
+    if (( dry_run == 1 )); then
+      echo "Dry run: ${git_cmd[*]}"
+      exit 0
+    fi
+    if (( yes_all == 0 )); then
+      read -r -p "Proceed with git rm? [y/N] " ans
+      case "$ans" in y|Y) ;; *) echo "Aborted."; exit 0;; esac
+    fi
+    "${git_cmd[@]}"
+    ;;
+
+  *)
+    echo "Unknown command: $cmd" >&2
+    print_usage
+    exit 2
+    ;;
+esac
