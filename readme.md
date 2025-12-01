@@ -31,10 +31,15 @@ Example usage
 Installation (manual for zsh)
 
 1. Ensure you have a directory in your PATH, e.g. `~/bin`:
+
+   ```bash
    mkdir -p ~/bin
    echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
    source ~/.zshrc
+   ```
 
 2. Copy the script into `~/bin` and make it executable:
+   ```bash
    curl -o ~/bin/gbn https://raw.githubusercontent.com/miccou/git-by-numbers/main/gbn
    chmod +x ~/bin/gbn
+   ```
