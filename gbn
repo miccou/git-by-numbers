@@ -60,16 +60,27 @@ while IFS= read -r -d '' entry; do
   statuses+=("$status")
 done < <(git status --porcelain -z --untracked-files=all)
 
-# Helper to print numbered status
+# Helper to print numbered status (overlays indices on git status output)
 print_status() {
   if [[ ${#files[@]} -eq 0 ]]; then
-    echo "(no changes)"
+    git status
     return
   fi
-  printf "%-5s %-4s %s\n" "Index" "XY" "File"
-  printf "%-5s %-4s %s\n" "-----" "--" "----"
-  for i in "${!files[@]}"; do
-    printf "%-5d %-4s %s\n" "$i" "${statuses[i]}" "${files[i]}"
+  # Get the colorized git status output and prepend line numbers
+  local idx=0
+  git -c color.status=always status | while IFS= read -r line; do
+    # Check if this line contains one of our tracked files
+    matched=0
+    for i in "${!files[@]}"; do
+      if [[ "$line" == *"${files[i]}"* ]]; then
+        printf "%3d: %s\n" "$i" "$line"
+        matched=1
+        break
+      fi
+    done
+    if (( matched == 0 )); then
+      printf "     %s\n" "$line"
+    fi
   done
 }
 
