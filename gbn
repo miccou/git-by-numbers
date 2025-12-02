@@ -73,13 +73,13 @@ print_status() {
     matched=0
     for i in "${!files[@]}"; do
       if [[ "$line" == *"${files[i]}"* ]]; then
-        printf "%3d: %s\n" "$i" "$line"
+        printf "%3d %s\n" "$i" "$line"
         matched=1
         break
       fi
     done
     if (( matched == 0 )); then
-      printf "     %s\n" "$line"
+      printf "   %s\n" "$line"
     fi
   done
 }
