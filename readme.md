@@ -1,5 +1,8 @@
 # git-by-numbers
 
+![git-by-numbers demo shown in a terminal](demo.gif)
+<sub><sup>Produced with [vhs](https://github.com/charmbracelet/vhs)<sup><sub>
+
 Operate on git status entries by numeric index — diff, add, restore, rm, and more.
 
 This tool prints a stable, NUL-safe numbered listing of `git status` entries (indices start at 0) and lets you run common git actions (diff, add, restore, checkout, rm) by referring to those indices. It supports ranges (2-5), comma-separated lists (0,3,7), staged vs worktree actions, dry-run, and confirmation prompts for destructive actions.
