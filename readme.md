@@ -31,7 +31,33 @@ Example usage
 - Restore from index 2 (staged version):
   gbn restore -s 2
 
-Installation (manual for zsh)
+## Testing
+
+This project uses [bats-core](https://github.com/bats-core/bats-core) for testing.
+
+### Installing bats
+
+On macOS with Homebrew:
+
+```bash
+brew install bats
+```
+
+On Linux:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install bats
+```
+
+### Running tests
+
+```bash
+# Run all tests
+bats test/gbn.bats
+```
+
+## Installation (manual for zsh)
 
 1. Ensure you have a directory in your PATH, e.g. `~/bin`:
 
