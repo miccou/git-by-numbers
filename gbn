@@ -79,7 +79,7 @@ print_status() {
       fi
     done
     if (( matched == 0 )); then
-      printf "   %s\n" "$line"
+      printf "%s\n" "$line"
     fi
   done
 }
