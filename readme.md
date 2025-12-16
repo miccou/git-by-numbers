@@ -15,6 +15,7 @@ Features
 - `restore` / `restore --staged` (with confirmation unless `--yes` supplied)
 - `checkout` (checkout file from HEAD)
 - `rm` / `rm --cached`
+- `discard` removes untracked files from disk (with confirmation unless `--yes` supplied)
 - Filenames with spaces, special characters, or newlines are supported (uses `git status --porcelain -z`)
 
 Example usage
@@ -30,6 +31,9 @@ Example usage
 
 - Restore from index 2 (staged version):
   gbn restore -s 2
+
+- Delete untracked files at indices 1-5:
+  gbn discard 1-5
 
 ## Testing
 

@@ -9,6 +9,7 @@
 #   gbn restore [--staged|-s] [--yes] [--dry-run|-n] INDEX[,RANGE...]
 #   gbn checkout INDEX[,RANGE...]
 #   gbn rm [--cached] [--yes] INDEX[,RANGE...]
+#   gbn discard [--yes] [--dry-run|-n] INDEX[,RANGE...]
 #
 set -euo pipefail
 
@@ -26,6 +27,8 @@ Commands:
                                  git restore files (or staged)
   checkout INDEX...              git checkout -- selected files (from HEAD)
   rm [--cached] [--yes] INDEX... git rm selected files (use --cached to remove from index only)
+  discard [--yes] [--dry-run|-n] INDEX...
+                                 Remove untracked files from disk (permanently deletes!)
   help
 
 INDEX can be comma-separated or ranges, e.g. 0,2-4,7
@@ -237,6 +240,38 @@ case "$cmd" in
       case "$ans" in y|Y) ;; *) echo "Aborted."; exit 0;; esac
     fi
     "${git_cmd[@]}"
+    ;;
+
+  discard)
+    # Filter to only untracked files (status "??")
+    declare -a untracked_targets=()
+    for idx in "${!chosen[@]}"; do
+      if [[ "${statuses[idx]}" == "??" ]]; then
+        untracked_targets+=("${files[idx]}")
+      else
+        echo "Warning: Skipping '${files[idx]}' - not an untracked file (status: ${statuses[idx]})" >&2
+      fi
+    done
+    if [[ ${#untracked_targets[@]} -eq 0 ]]; then
+      echo "No untracked files selected." >&2
+      exit 0
+    fi
+    echo "Files to be PERMANENTLY DELETED:"
+    for f in "${untracked_targets[@]}"; do
+      echo "  $f"
+    done
+    if (( dry_run == 1 )); then
+      echo "Dry run: rm -- ${untracked_targets[*]}"
+      exit 0
+    fi
+    if (( yes_all == 0 )); then
+      echo ""
+      echo "WARNING: This will permanently delete these files! They are NOT recoverable."
+      read -r -p "Are you sure you want to delete these files? [y/N] " ans
+      case "$ans" in y|Y) ;; *) echo "Aborted."; exit 0;; esac
+    fi
+    rm -- "${untracked_targets[@]}"
+    echo "Deleted ${#untracked_targets[@]} file(s)."
     ;;
 
   *)
