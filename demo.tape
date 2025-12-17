@@ -10,7 +10,7 @@ Set Shell "bash"
 Set FontSize 18
 Set Width 1200
 Set Height 700
-Set TypingSpeed 50ms
+Set TypingSpeed 35ms
 Set WindowBar Colorful
 Set Framerate 30
 
@@ -43,37 +43,35 @@ Sleep 3s
 
 Type "# Diff specific files using indices"
 Enter
-Sleep 1500ms
-Type "gbn diff 2,4"
+Sleep 350ms
+Type "gbn diff 2,4 | head -n 10"
 Enter
 Sleep 3s
-Type "q"
-Sleep 500ms
 
 Type "# Add files by index range"
 Enter
-Sleep 1500ms
+Sleep 350ms
 Type "gbn add 3-6"
-Enter
-Sleep 2s
-
-Type "# Check status again"
-Enter
-Sleep 1500ms
-Type "gbn status"
 Enter
 Sleep 3s
 
-Type "# View staged diff"
+Type "# Check status again"
 Enter
-Sleep 1500ms
-Type "gbn diff --staged 4"
+Sleep 350ms
+Type "gbn status"
 Enter
 Sleep 2s
 
+Type "# View staged diff"
+Enter
+Sleep 350ms
+Type "gbn diff --staged 4 | head -n 10"
+Enter
+Sleep 3s
+
 Type "# Restore staged files"
 Enter
-Sleep 1500ms
+Sleep 350ms
 Type "gbn restore --staged --yes 3-5"
 Enter
 Sleep 2s

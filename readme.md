@@ -35,6 +35,23 @@ Example usage
 - Delete untracked files at indices 1-5:
   gbn discard 1-5
 
+## Updating the demo GIF
+
+The demo GIF is generated using [vhs](https://github.com/charmbracelet/vhs). To regenerate it:
+
+1. Install vhs:
+
+   ```bash
+   brew install vhs
+   ```
+
+2. Run vhs on the tape file:
+   ```bash
+   vhs demo.tape
+   ```
+
+This will output a new `demo.gif` in the current directory.
+
 ## Testing
 
 This project uses [bats-core](https://github.com/bats-core/bats-core) for testing.
