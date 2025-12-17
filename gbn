@@ -32,11 +32,15 @@ Commands:
   help
 
 INDEX can be comma-separated or ranges, e.g. 0,2-4,7
+You can also pass filenames directly instead of indices - they will be
+passed through to the underlying git command.
 
 Examples:
   $prog status
   $prog diff 0,3-5
+  $prog diff myfile.py         # passthrough to git diff
   $prog add 4
+  $prog add src/file.ts        # passthrough to git add
   $prog restore -s 2  # restore staged state for index 2
 EOF
 }
@@ -113,6 +117,13 @@ case "$cmd" in
   help) print_usage; exit 0;;
 esac
 
+# Check if an argument looks like a numeric index or range (e.g., "0", "2-4", "0,2-4,7")
+is_index_arg() {
+  local arg="$1"
+  # Match: digits, digits-digits, or comma-separated combinations
+  [[ "$arg" =~ ^[0-9]+([-,][0-9]+)*$ ]]
+}
+
 # Parse flags that may be passed before indices
 staged=0
 dry_run=0
@@ -134,6 +145,65 @@ done
 if [[ ${#index_args[@]} -eq 0 ]]; then
   echo "No index given. Use '$prog status' to see indices." >&2
   exit 2
+fi
+
+# Check if any argument looks like a filename (not an index)
+# If so, pass through to git directly
+has_filename_arg=0
+for arg in "${index_args[@]}"; do
+  if ! is_index_arg "$arg"; then
+    has_filename_arg=1
+    break
+  fi
+done
+
+if (( has_filename_arg == 1 )); then
+  # Passthrough to git: build the git command with the original args
+  case "$cmd" in
+    diff)
+      git_cmd=(git diff)
+      if (( staged == 1 )); then
+        git_cmd+=(--staged)
+      fi
+      git_cmd+=(--)
+      git_cmd+=("${index_args[@]}")
+      "${git_cmd[@]}"
+      ;;
+    add)
+      git add -- "${index_args[@]}"
+      ;;
+    restore)
+      git_cmd=(git restore)
+      if (( staged == 1 )); then
+        git_cmd+=(--staged)
+      fi
+      git_cmd+=(--)
+      git_cmd+=("${index_args[@]}")
+      "${git_cmd[@]}"
+      ;;
+    checkout)
+      git checkout -- "${index_args[@]}"
+      ;;
+    rm)
+      git_cmd=(git rm)
+      if (( cached_rm == 1 )); then
+        git_cmd+=(--cached)
+      fi
+      git_cmd+=(--)
+      git_cmd+=("${index_args[@]}")
+      "${git_cmd[@]}"
+      ;;
+    discard)
+      echo "discard command only works with numeric indices." >&2
+      exit 2
+      ;;
+    *)
+      echo "Unknown command: $cmd" >&2
+      print_usage
+      exit 2
+      ;;
+  esac
+  exit 0
 fi
 
 declare -A chosen
