@@ -206,18 +206,31 @@ if (( has_filename_arg == 1 )); then
   exit 0
 fi
 
-declare -A chosen
+# Use a regular array to track chosen indices (Bash 3.x compatible)
+declare -a chosen_indices=()
 for arg in "${index_args[@]}"; do
   IFS=',' read -ra toks <<< "$arg"
   for t in "${toks[@]}"; do
     for i in $(expand_token "$t"); do
-      chosen["$i"]=1
+      # Check if already in chosen_indices
+      already=0
+      if [[ ${#chosen_indices[@]} -gt 0 ]]; then
+        for existing in "${chosen_indices[@]}"; do
+          if [[ "$existing" == "$i" ]]; then
+            already=1
+            break
+          fi
+        done
+      fi
+      if (( already == 0 )); then
+        chosen_indices+=("$i")
+      fi
     done
   done
 done
 
-declare -a targets
-for idx in "${!chosen[@]}"; do
+declare -a targets=()
+for idx in "${chosen_indices[@]}"; do
   if ! [[ "$idx" =~ ^[0-9]+$ ]]; then
     echo "Bad index: $idx" >&2
     exit 4
@@ -315,7 +328,7 @@ case "$cmd" in
   discard)
     # Filter to only untracked files (status "??")
     declare -a untracked_targets=()
-    for idx in "${!chosen[@]}"; do
+    for idx in "${chosen_indices[@]}"; do
       if [[ "${statuses[idx]}" == "??" ]]; then
         untracked_targets+=("${files[idx]}")
       else

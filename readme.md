@@ -75,7 +75,7 @@ sudo apt-get install bats
 
 ```bash
 # Run all tests
-bats test/gbn.bats
+bats gbn-tests.bats
 ```
 
 ## Installation (manual for zsh)

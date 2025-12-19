@@ -3,17 +3,15 @@
 setup() {
 	# Create isolated temp workspace per test
 	TMPDIR_BASE=$(mktemp -d "${BATS_TMPDIR}/gbn.XXXXXX")
+	cp gbn $TMPDIR_BASE
 	cd "$TMPDIR_BASE"
+	chmod +x ./gbn
 
 	# Init repo and configure
 	git init -q
 	git config user.email test@example.com
 	git config user.name "GBN Test"
 
-	# Symlink the gbn script from repo root for invocation
-	REPO_ROOT="/Users/michaelc/miccou/git-by-numbers"
-	ln -s "$REPO_ROOT/gbn" ./gbn
-	chmod +x ./gbn
 }
 
 teardown() {
@@ -97,21 +95,27 @@ assert_output_contains() {
 	# Determine index for staged.txt from status
 	run ./gbn status
 	[ "$status" -eq 0 ]
-	idx=$(printf "%s" "$output" | awk '/staged.txt/ {print $1}')
+	idx=$(printf "%s" "$output" | awk '/staged.txt/ {print $1; exit}')
 
 	run ./gbn diff --staged "$idx"
 	[ "$status" -eq 0 ]
-	assert_output_contains "+world"
+	# --staged shows what's staged (hello), not working tree changes (world)
+	assert_output_contains "+hello"
 }
 
 @test "restore --staged with --yes resets staged entry" {
+	# Need an initial commit for restore --staged to work
+	echo init > init.txt
+	git add init.txt
+	git commit -qm "initial"
+
 	echo content > x.txt
 	git add x.txt
 	echo more >> x.txt
 
 	run ./gbn status
 	[ "$status" -eq 0 ]
-	idx=$(printf "%s" "$output" | awk '/x.txt/ {print $1}')
+	idx=$(printf "%s" "$output" | awk '/x.txt/ {print $1; exit}')
 
 	run ./gbn restore --staged --yes "$idx"
 	[ "$status" -eq 0 ]
@@ -123,13 +127,18 @@ assert_output_contains() {
 }
 
 @test "restore dry-run prints command without executing" {
+	# Need an initial commit for restore --staged to work
+	echo init > init.txt
+	git add init.txt
+	git commit -qm "initial"
+
 	echo stuff > y.txt
 	git add y.txt
 	echo changed >> y.txt
 
 	run ./gbn status
 	[ "$status" -eq 0 ]
-	idx=$(printf "%s" "$output" | awk '/y.txt/ {print $1}')
+	idx=$(printf "%s" "$output" | awk '/y.txt/ {print $1; exit}')
 
 	run ./gbn restore --staged -n "$idx"
 	[ "$status" -eq 0 ]
