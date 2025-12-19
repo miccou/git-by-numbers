@@ -1,0 +1,21 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bats and helpers
+        uses: bats-core/bats-action@3.0.0
+
+      - name: Run BATS tests
+        run: bats gbn-tests.bats
